@@ -259,6 +259,15 @@ def flash_attention(
     scale: float | None = None,
     mask: mx.array | None = None,
 ) -> mx.array:
+    """
+    input shape:
+    - query: [B, H_q, L, E]
+    - key: [B, H, S, E]
+    - value: [B, H, S, E]
+    - mask: [B, H_q, L, S]
+    output shape:
+    - output: [B, H_q, L, E]
+    """
     # Step 1: Calculate scale factor
     # Calculate scale = 1 / sqrt(query.shape[-1]) if not provided
     # Convert scale to the same dtype as query
@@ -278,6 +287,10 @@ def flash_attention(
     query = query.reshape(-1, L, E)
     key = key.reshape(-1, S, E)
     value = value.reshape(-1, S, E)
+    # after reshape:
+    # - query: [N_Q, L, E], N_Q = B * H_q
+    # - key: [N_KV, S, E], N_KV = B * H
+    # - value: [N_KV, S, E], N_KV = B * H
     # make the query, key, value contiguous in memory, for efficient computation
     query = mx.contiguous(query)
     key = mx.contiguous(key)
@@ -300,6 +313,12 @@ def flash_attention(
     # Step 5: Call optimized flash attention kernel
     # Use the C++/Metal optimized flash attention implementation
     # This is typically implemented in extensions for performance
+    # Flash Attention 的 C++/Metal 实现期望特定的输入格式
+    # float* query,    // [N, L, E] - 3D 数组
+    # float* key,      // [N_KV, S, E] - 3D 数组
+    # float* value,    // [N_KV, S, E] - 3D 数组
+    # float* mask,     // [N, L, S] - 3D 数组
+
     result = tiny_llm_ext_ref.flash_attention(
         query,
         key,
