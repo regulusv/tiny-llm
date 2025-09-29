@@ -34,14 +34,54 @@ def scaled_dot_product_attention_simple(
 class SimpleMultiHeadAttention:
     def __init__(
         self,
-        hidden_size: int,
+        hidden_size: int, # d_model
         num_heads: int,
         wq: mx.array,
         wk: mx.array,
         wv: mx.array,
         wo: mx.array,
     ):
-        pass
+        """
+        一个标准的多头注意力（Multi-Head Attention, 多头注意力）实现：
+        - 输入/输出形状: (N, L, d_model)
+        - 头数: num_heads = h
+        - 每头维度: head_dim = d_model // h
+        - 权重形状:
+        wq, wk, wv: (d_model, h * head_dim)
+        wo:         (h * head_dim, d_model)
+        """
+        # Step 1: Store basic parameters
+        # Store the hidden size and number of attention heads
+        self.hidden_size = hidden_size
+        self.num_heads = num_heads
+        
+        # Step 2: Calculate head dimension and validate
+        # Calculate head_dim = hidden_size // num_heads
+        # Assert that hidden_size is divisible by num_heads
+        self.head_dim = hidden_size // num_heads
+        assert hidden_size % num_heads == 0
+        
+        # Step 3: Calculate scale factor for attention
+        # Calculate scale = 1 / sqrt(head_dim) for attention scaling
+        self.scale = 1 / mx.rsqrt(self.head_dim)
+        
+        # Step 4: Validate weight matrix shapes
+        # Assert that all weight matrices have correct shapes:
+        # - wq: (hidden_size, num_heads * head_dim)
+        # - wk: (hidden_size, num_heads * head_dim) 
+        # - wv: (hidden_size, num_heads * head_dim)
+        # - wo: (num_heads * head_dim, hidden_size)
+        assert wq.shape == (hidden_size, num_heads * self.head_dim)
+        assert wk.shape == (hidden_size, num_heads * self.head_dim)
+        assert wv.shape == (hidden_size, num_heads * self.head_dim)
+        assert wo.shape == (num_heads * self.head_dim, hidden_size)
+        
+        # Step 5: Store weight matrices
+        # Store all weight matrices as instance variables
+        self.wq = wq
+        self.wk = wk
+        self.wv = wv
+        self.wo = wo
 
     def __call__(
         self,
@@ -50,6 +90,30 @@ class SimpleMultiHeadAttention:
         value: mx.array,
         mask: mx.array | None = None,
     ) -> mx.array:
+        # Step 1: Extract input dimensions
+        # Extract batch size (N) and sequence length (L) from query shape
+        # Assert that query, key, value have the same shape
+        pass
+        
+        # Step 2: Project Q, K, V to multi-head space
+        # Apply linear transformation to Q, K, V using wq, wk, wv
+        # Reshape from [N, L, hidden_size] to [N, L, num_heads, head_dim]
+        # Transpose to [N, num_heads, L, head_dim] for attention computation
+        pass
+        
+        # Step 3: Apply scaled dot product attention
+        # Call scaled_dot_product_attention_simple with projected Q, K, V
+        # Use the precomputed scale factor and optional mask
+        pass
+        
+        # Step 4: Reshape and transpose back
+        # Transpose from [N, num_heads, L, head_dim] to [N, L, num_heads, head_dim]
+        # Reshape back to [N, L, hidden_size]
+        pass
+        
+        # Step 5: Apply output projection
+        # Apply linear transformation using wo to get final output
+        # Return the final result with shape [N, L, hidden_size]
         pass
 
 
@@ -128,4 +192,33 @@ def flash_attention(
     scale: float | None = None,
     mask: mx.array | None = None,
 ) -> mx.array:
+    # Step 1: Calculate scale factor
+    # Calculate scale = 1 / sqrt(query.shape[-1]) if not provided
+    # Convert scale to the same dtype as query
+    pass
+    
+    # Step 2: Extract dimensions and validate
+    # Extract batch dimensions (*B), query heads (H_q), sequence lengths (L, S), head dimension (E)
+    # Assert that query heads are divisible by key/value heads for grouped query attention
+    pass
+    
+    # Step 3: Reshape for grouped query attention
+    # Reshape query, key, value to support grouped query attention
+    # Flatten batch dimensions for efficient computation
+    pass
+    
+    # Step 4: Prepare mask
+    # Handle mask preparation for flash attention
+    # If no mask provided, create zero mask
+    # If mask provided, reshape to match the attention computation
+    pass
+    
+    # Step 5: Call optimized flash attention kernel
+    # Use the C++/Metal optimized flash attention implementation
+    # This is typically implemented in extensions for performance
+    pass
+    
+    # Step 6: Reshape output back to original shape
+    # Reshape the result back to the expected output shape
+    # Return the final attention output
     pass
