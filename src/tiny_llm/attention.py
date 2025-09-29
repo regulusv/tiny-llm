@@ -9,6 +9,23 @@ def scaled_dot_product_attention_simple(
     scale: float | None = None,
     mask: mx.array | None = None,
 ) -> mx.array:
+    """
+    实现标准的缩放点积注意力（Scaled Dot-Product Attention）。
+    参数:
+        query: 查询张量，形状为 [..., L, D]，L为序列长度，D为嵌入维度
+        key: 键张量，形状为 [..., S, D]，S为序列长度，D为嵌入维度
+        value: 值张量，形状为 [..., S, D]
+        scale: 缩放因子（可选），若为None则使用1/sqrt(D)
+        mask: 掩码张量（可选），形状可广播到 attention_scores
+    返回:
+        输出张量，形状为 [..., L, D]
+    步骤:
+        1. 计算缩放因子
+        2. 计算注意力分数 QK^T
+        3. 加上掩码（如果有）
+        4. 对最后一个维度做softmax归一化
+        5. 用softmax权重加权V得到输出
+    """
     # step 1: calculate the scale
     # shape of query
     factor = mx.rsqrt(query.shape[-1]) if scale is None else scale
@@ -159,6 +176,30 @@ def scaled_dot_product_attention_grouped(
     scale: float | None = None,
     mask: mx.array | str | None = None,
 ) -> mx.array:
+    """
+    该函数实现了分组（grouped）多头注意力（Multi-Head Attention）中的缩放点积注意力（scaled dot product attention）。
+
+    参数说明：
+    - query: 查询张量，形状为 [B, H_q, L, D]，B为batch size，H_q为query的头数，L为序列长度，D为每个头的维度。
+    - key: 键张量，形状为 [B, H, S, D]，H为key的头数（通常小于等于H_q），S为key序列长度。
+    - value: 值张量，形状同key。
+    - scale: 缩放因子，若为None则自动按head维度开根号倒数缩放。
+    - mask: 掩码，可以是None、"causal"（自回归掩码）或自定义的float数组。
+
+    grouped的含义：
+    在一些模型（如Llama等）中，query的头数（H_q）和key/value的头数（H）可以不同，通常H_q > H。这种情况下，每个key/value head会被分配给多个query head（即分组/grouped）。例如H_q=8, H=2，则每个key/value head会被4个query head共享。这样做可以减少参数量和计算量，同时保持较高的表达能力。
+
+    该函数的主要流程：
+    1. 计算缩放因子。
+    2. 将query、key、value按照分组方式reshape，使得每个key/value head可以被多个query head共享。
+    3. 计算注意力分数（点积+缩放）。
+    4. 根据mask类型加掩码（支持causal mask和自定义mask）。
+    5. 对分数做softmax并加权value。
+    6. 恢复输出形状为原始query的形状。
+
+    grouped attention的核心就是：允许query的头数大于key/value的头数，通过分组方式让多个query head共享同一个key/value head的信息。
+    """
+    
     # step 1: calculate the scale
     # shape of query: B x H_q x L x D, H_q is the number of query heads, L is the sequence length of query, D is the dimension of the query
     # shape of key: B x H x S x D, H < H_q, S is the sequence length of key and value
@@ -220,30 +261,55 @@ def flash_attention(
     # Step 1: Calculate scale factor
     # Calculate scale = 1 / sqrt(query.shape[-1]) if not provided
     # Convert scale to the same dtype as query
-    pass
+    factor = mx.rsqrt(query.shape[-1]) if scale is None else mx.array(scale)
+    factor = factor.astype(query.dtype)
     
     # Step 2: Extract dimensions and validate
     # Extract batch dimensions (*B), query heads (H_q), sequence lengths (L, S), head dimension (E)
     # Assert that query heads are divisible by key/value heads for grouped query attention
-    pass
+    *B, H_q, L, E = query.shape
+    _, H, S, _ = key.shape
+    assert H_q % H == 0
     
     # Step 3: Reshape for grouped query attention
     # Reshape query, key, value to support grouped query attention
     # Flatten batch dimensions for efficient computation
-    pass
+    query = query.reshape(-1, L, E)
+    key = key.reshape(-1, S, E)
+    value = value.reshape(-1, S, E)
+    # make the query, key, value contiguous in memory, for efficient computation
+    query = mx.contiguous(query)
+    key = mx.contiguous(key)
+    value = mx.contiguous(value)
+    N = query.shape[0]
     
     # Step 4: Prepare mask
     # Handle mask preparation for flash attention
     # If no mask provided, create zero mask
     # If mask provided, reshape to match the attention computation
-    pass
+    if mask is None:
+        mask = mx.reshape(
+            mx.broadcast_to(mx.zeros((L, S)), (*B, H_q, L, S)), (N, L, S)
+        ).astype(mx.float32)
+    else:
+        mask = mx.reshape(mx.broadcast_to(mask, (*B, H_q, L, S)), (N, L, S)).astype(
+            mx.float32
+        )
     
     # Step 5: Call optimized flash attention kernel
     # Use the C++/Metal optimized flash attention implementation
     # This is typically implemented in extensions for performance
-    pass
+    result = tiny_llm_ext_ref.flash_attention(
+        query,
+        key,
+        value,
+        mask,
+        factor,
+        num_heads=H_q,
+        num_kv_heads=H,
+    )
     
     # Step 6: Reshape output back to original shape
     # Reshape the result back to the expected output shape
     # Return the final attention output
-    pass
+    return mx.contiguous(result.reshape(*B, H_q, L, E))
