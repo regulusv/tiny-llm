@@ -93,28 +93,53 @@ class SimpleMultiHeadAttention:
         # Step 1: Extract input dimensions
         # Extract batch size (N) and sequence length (L) from query shape
         # Assert that query, key, value have the same shape
-        pass
+        N, L, _ = query.shape
+        assert query.shape == key.shape == value.shape
         
         # Step 2: Project Q, K, V to multi-head space
+        # 拆分多头 - 将单个大向量分解为多个小头
+        # Q = X * Wq
+        # K = X * Wk
+        # V = X * Wv
         # Apply linear transformation to Q, K, V using wq, wk, wv
         # Reshape from [N, L, hidden_size] to [N, L, num_heads, head_dim]
         # Transpose to [N, num_heads, L, head_dim] for attention computation
-        pass
+        projection_q = (
+            linear(query, self.wq)
+            .reshape(N, L, self.num_heads, self.head_dim)
+            .transpose(0, 2, 1, 3)
+        )
+        projection_k = (
+            linear(key, self.wk)
+            .reshape(N, L, self.num_heads, self.head_dim)
+            .transpose(0, 2, 1, 3)
+        )
+        projection_v = (
+            linear(value, self.wv)
+            .reshape(N, L, self.num_heads, self.head_dim)
+            .transpose(0, 2, 1, 3)
+        )
         
         # Step 3: Apply scaled dot product attention
         # Call scaled_dot_product_attention_simple with projected Q, K, V
         # Use the precomputed scale factor and optional mask
-        pass
+        attention_output = scaled_dot_product_attention_simple(
+            projection_q,
+            projection_k,
+            projection_v,
+            scale=self.scale,
+            mask=mask,
+        )
         
         # Step 4: Reshape and transpose back
         # Transpose from [N, num_heads, L, head_dim] to [N, L, num_heads, head_dim]
         # Reshape back to [N, L, hidden_size]
-        pass
+        attention_output = attention_output.transpose(0, 2, 1, 3).reshape(N, L, self.hidden_size)
         
         # Step 5: Apply output projection
         # Apply linear transformation using wo to get final output
         # Return the final result with shape [N, L, hidden_size]
-        pass
+        return linear(attention_output, self.wo)
 
 
 def causal_mask(L: int, S: int, dtype: mx.Dtype) -> mx.array:
