@@ -1,5 +1,6 @@
 import mlx.core as mx
 from .basics import softmax, linear
+from extensions_ref import tiny_llm_ext_ref
 
 
 def scaled_dot_product_attention_simple(
