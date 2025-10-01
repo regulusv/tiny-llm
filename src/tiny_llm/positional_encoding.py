@@ -52,9 +52,6 @@ class RoPE:
         # - mx.outer(t, freqs) 计算外积（outer product，外积矩阵），得到每个位置 pos
         #   和每个通道 i 对应的角度值 pos * inv_freq_i。
         # - 最终结果形状为 (seq_len, half_dims)，方便后面做 self.cos_freqs = cos(freqs)、self.sin_freqs = sin(freqs)。
-        self.cos_freqs = mx.cos(freqs)
-        self.sin_freqs = mx.sin(freqs)
-
         # Step 3: Cache sin/cos tables for all sequence positions
         self.cos_freqs = mx.cos(freqs)
         self.sin_freqs = mx.sin(freqs)

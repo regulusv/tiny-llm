@@ -205,7 +205,7 @@ def scaled_dot_product_attention_grouped(
     # shape of query: B x H_q x L x D, H_q is the number of query heads, L is the sequence length of query, D is the dimension of the query
     # shape of key: B x H x S x D, H < H_q, S is the sequence length of key and value
     # shape of value: B x H x S x D, H of value is the same as key
-    factor = mx.rsqrt(query.shape[-1]) if scale is None else scale
+    factor = mx.rsqrt(query.shape[-1]) if scale is None else mx.array(scale)
     factor = factor.astype(query.dtype)
     # shape of expected_shape: B x H_q x L x D
     expected_shape = query.shape
