@@ -23,44 +23,35 @@ class RoPE:
         # - Create positions `t = mx.arange(seq_len)`
         # - Build outer product: freqs = mx.outer(t, freqs)
         half_dims = dims // 2
+
         # 下面构造用于 RoPE（Rotary Positional Encoding，旋转位置编码）的角度矩阵。
         # 目标：为每个位置 pos 和通道索引 i 计算角度
         #   \( \theta_{pos,i} = pos \times base^{-2i/d} \)
         # 其中 d = dims，half_dims = d/2，i ∈ [0, half_dims-1]。
         # inner[i] = i / half_dims = 2i/d，用来构造指数 -2i/d（用于 base 的幂运算）。
         inner = mx.arange(0, half_dims, dtype=mx.float32) / half_dims
-        # ----------------------------
-        # 解释（explain）：
+        
         # - mx.arange(0, half_dims) 产生 [0,1,...,half_dims-1]（索引向量 index vector）。
         # - 除以 half_dims 后，相当于得到 [0, 1/half_dims, ..., (half_dims-1)/half_dims]，
         #   即数学上的 2i/d（因为 half_dims = d/2）。
-        # ----------------------------
 
-        # freqs[i] = base ** (-inner[i]) = base^{-2i/d}
+        # freqs[i] = base ** (-inner[i]) = base^{-2i/d}, base = 10000
         # 这里得到每个通道的“逆频率” inverse frequency（逆频率）。
         freqs = mx.power(base, -inner)
-        # ----------------------------
-        # 解释（explain）：
         # - 这对应经典公式 inv_freq_i = 1 / base^{2i/d}（当 base=10000 时即 Transformer 的做法）。
-        # ----------------------------
 
         # t 是位置索引向量 t = [0, 1, ..., seq_len-1]
         t = mx.arange(seq_len)
-        # ----------------------------
-        # 解释（explain）：
         # - 每一行代表序列中的某个位置 pos（position index）。
-        # ----------------------------
 
         # 外积得到形状 (seq_len, half_dims):
         # freqs_matrix[pos, i] = pos * base^{-2i/d}
         # 这正是用于后续取 cos/sin 的角度矩阵 θ_{pos,i}
         freqs = mx.outer(t, freqs)
-        # ----------------------------
-        # 解释（explain）：
+
         # - mx.outer(t, freqs) 计算外积（outer product，外积矩阵），得到每个位置 pos
         #   和每个通道 i 对应的角度值 pos * inv_freq_i。
         # - 最终结果形状为 (seq_len, half_dims)，方便后面做 self.cos_freqs = cos(freqs)、self.sin_freqs = sin(freqs)。
-        # ----------------------------
         self.cos_freqs = mx.cos(freqs)
         self.sin_freqs = mx.sin(freqs)
 
