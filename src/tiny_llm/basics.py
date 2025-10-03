@@ -12,8 +12,16 @@ def linear(
     w: mx.array,
     bias: mx.array | None = None,
 ) -> mx.array:
-    pass
+    # 实现仿射变换: y = x @ W^T + b
+    # 其中 x 形状为 [*, in_features]
+    #     w 形状为 [out_features, in_features]
+    # 返回形状与 x 的前缀维度一致，最后维度为 out_features
+    y = mx.matmul(x, w.T)
+    if bias is not None:
+        y = y + bias
+    return y
 
 
 def silu(x: mx.array) -> mx.array:
-    pass
+    # SiLU 激活: x * sigmoid(x) = x / (1 + exp(-x))
+    return x / (1 + mx.exp(-x))
