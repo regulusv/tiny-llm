@@ -94,48 +94,61 @@ class Qwen2MultiHeadAttention:
         Returns:
             Output tensor of shape (batch_size, seq_len, hidden_size)
         """
-        # TODO: Step 1 - Get input dimensions
+        # Step 1 - Get input dimensions
         # Extract batch_size (B), sequence_length (L) from input shape
-        # B, L, _ = x.shape
+        B, L, _ = x.shape
         
-        # TODO: Step 2 - Linear projections for Q, K, V
+        # Step 2 - Linear projections for Q, K, V
+        # 我们必须先从输入向量 x 中投影出 Q/K/V 三个向量
         # Apply linear transformations with bias:
-        # projection_q = linear(x, self.wq, bias=self.bq)
-        # projection_k = linear(x, self.wk, bias=self.bk)  
-        # projection_v = linear(x, self.wv, bias=self.bv)
+        projection_q = linear(x, self.wq, bias=self.bq)
+        projection_k = linear(x, self.wk, bias=self.bk)  
+        projection_v = linear(x, self.wv, bias=self.bv)
         
-        # TODO: Step 3 - Reshape for multi-head attention
+        # Step 3 - Reshape for multi-head attention
         # Reshape projections to separate heads:
         # projection_q: (B, L, num_heads, head_dim)
         # projection_k: (B, L, num_kv_heads, head_dim)
         # projection_v: (B, L, num_kv_heads, head_dim)
+        projection_q = projection_q.reshape(B, L, self.num_heads, self.head_dim)
+        projection_k = projection_k.reshape(B, L, self.num_kv_heads, self.head_dim)
+        projection_v = projection_v.reshape(B, L, self.num_kv_heads, self.head_dim)
         
-        # TODO: Step 4 - Apply RoPE positional encoding
+        # Step 4 - Apply RoPE positional encoding
         # Apply RoPE to query and key projections:
-        # projection_q = self.rope(projection_q, offset=slice(0, L))
-        # projection_k = self.rope(projection_k, offset=slice(0, L))
+        projection_q = self.rope(projection_q, offset=slice(0, L))
+        projection_k = self.rope(projection_k, offset=slice(0, L))
         
-        # TODO: Step 5 - Transpose for attention computation
-        # Transpose to (batch_size, num_heads, seq_len, head_dim):
-        # projection_q = projection_q.transpose(0, 2, 1, 3)
-        # projection_k = projection_k.transpose(0, 2, 1, 3)
-        # projection_v = projection_v.transpose(0, 2, 1, 3)
+        # Step 5 - Transpose for attention computation
+        # Transpose from (B, L, num_heads, head_dim) to (batch_size(B), num_heads, seq_len(L), head_dim):
+        projection_q = projection_q.transpose(0, 2, 1, 3)
+        projection_k = projection_k.transpose(0, 2, 1, 3)
+        projection_v = projection_v.transpose(0, 2, 1, 3)
         
-        # TODO: Step 6 - Apply scaled dot-product attention
+        # Step 6 - Apply scaled dot-product attention
         # Call scaled_dot_product_attention_grouped with:
         # - Convert to float32 for computation: .astype(mx.float32)
         # - Use self.scale for attention scaling
         # - Pass the mask parameter
         # - Convert result back to original dtype: .astype(x.dtype)
+        x = scaled_dot_product_attention_grouped(
+            projection_q.astype(mx.float32),
+            projection_k.astype(mx.float32),
+            projection_v.astype(mx.float32),
+            scale=self.scale,
+            mask=mask,
+        ).astype(x.dtype) # float16, 统一类型，节省内存，便于残差连接等后续操作
         
-        # TODO: Step 7 - Transpose back and reshape
+        # Step 7 - Transpose back and reshape
         # Transpose back to (batch_size, seq_len, num_heads, head_dim)
         # Reshape to (batch_size, seq_len, hidden_size)
+        # 把多个 head 的输出合并成原始的 hidden_size 维度, 恢复成了跟输入一样的维度（hidden_size 是 num_heads × head_dim），可以送入后续层。
+        x = x.transpose(0, 2, 1, 3).reshape(B, L, self.hidden_size)
         
-        # TODO: Step 8 - Apply output projection
+        # Step 8 - Apply output projection
         # Apply final linear transformation: linear(x, self.wo)
-        # Return the result
-        pass
+        # 
+        return linear(x, self.wo)
 
 
 class Qwen2MLP:
