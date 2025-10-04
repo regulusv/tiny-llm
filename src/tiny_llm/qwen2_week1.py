@@ -151,6 +151,29 @@ class Qwen2MultiHeadAttention:
         return linear(x, self.wo)
 
 
+#
+# -----------------------------------------------------------------------------
+# 原始 Transformer 中的 MLP 与 Qwen2 MLP 的区别说明：
+#
+# 【原始 Transformer 中的 MLP 结构】：
+#     MLP(x) = W2(ReLU(W1 x)) 或 MLP(x) = W2(GELU(W1 x))
+#
+#   - W1: Linear projection from hidden_size → intermediate_size (通常是 4x 扩展)
+#   - Activation: ReLU / GELU 非线性激活
+#   - W2: Linear projection from intermediate_size → hidden_size（降维）
+#
+# 【Qwen2 中的 MLP 结构（使用 SwiGLU）】：
+#     MLP(x) = W_down(SiLU(W_gate x) ⊙ W_up x)
+#
+#   - 使用三路投影：gate_proj、up_proj、down_proj
+#   - SiLU 激活用于门控（gate）路径：SiLU(x) = x * sigmoid(x)
+#   - ⊙ 表示逐元素乘法：SiLU(gate_proj(x)) * up_proj(x)
+#   - 最后通过 down_proj 线性变换降维
+#
+# 【优势】：
+#   - SwiGLU 比单一激活更强表达力，能建模更复杂的关系
+#   - 实现细节上虽然增加了参数，但效果和收敛性更优
+# -----------------------------------------------------------------------------
 class Qwen2MLP:
     """
     Multi-Layer Perceptron (MLP) implementation for Qwen2 model.
@@ -180,18 +203,18 @@ class Qwen2MLP:
             w_up: Weight matrix for up projection (dim -> hidden_dim)
             w_down: Weight matrix for down projection (hidden_dim -> dim)
         """
-        # TODO: Step 1 - Store dimensions
+        # Step 1 - Store dimensions
         # Store input/output dimension and hidden dimension
-        # self.dim = dim
-        # self.hidden_dim = hidden_dim
+        self.dim = dim
+        self.hidden_dim = hidden_dim
         
-        # TODO: Step 2 - Store weight matrices
+        # Step 2 - Store weight matrices
         # Store the three weight matrices for gate, up, and down projections
-        # self.w_gate = w_gate
-        # self.w_up = w_up
-        # self.w_down = w_down
-        pass
+        self.w_gate = w_gate
+        self.w_up = w_up
+        self.w_down = w_down
 
+    
     def __call__(self, x: mx.array) -> mx.array:
         """
         Forward pass of MLP.
@@ -204,24 +227,27 @@ class Qwen2MLP:
         Returns:
             Output tensor of shape (batch_size, seq_len, dim)
         """
-        # TODO: Step 1 - Gate projection
+        # Step 1 - Gate projection
         # Apply gate projection: gate = linear(x, self.w_gate)
+        gate = linear(x, self.w_gate)
         
-        # TODO: Step 2 - Up projection  
+        # Step 2 - Up projection  
         # Apply up projection: up = linear(x, self.w_up)
+        up = linear(x, self.w_up)
         
-        # TODO: Step 3 - Apply SiLU activation
-        # Apply SiLU activation to gate: activated_gate = silu(gate)
+        # Step 3 - Apply SiLU activation
+        activated_gate = silu(gate)
         
-        # TODO: Step 4 - Element-wise multiplication
+        # Step 4 - Element-wise multiplication
         # Multiply activated gate with up projection: intermediate = activated_gate * up
+        intermediate = activated_gate * up
         
-        # TODO: Step 5 - Down projection
+        # Step 5 - Down projection
         # Apply down projection: output = linear(intermediate, self.w_down)
+        output = linear(intermediate, self.w_down)
         
-        # TODO: Step 6 - Return result
-        # Return the final output
-        pass
+        # Step 6 - Return result
+        return output
 
 
 class Qwen2TransformerBlock:
