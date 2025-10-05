@@ -312,10 +312,20 @@ class Qwen2TransformerBlock:
         # Create input layer norm: self.input_layernorm = RMSNorm(hidden_size, w_input_layernorm, eps=rms_norm_eps)
         # Create post-attention layer norm: self.post_attention_layernorm = RMSNorm(hidden_size, w_post_attention_layernorm, eps=rms_norm_eps)
         
-        # TODO: Step 4 - Initialize Multi-Head Attention
-        # Create attention instance: self.self_attn = Qwen2MultiHeadAttention(...)
-        # Pass all attention-related parameters: num_heads, hidden_size, num_kv_heads, weights, biases, max_seq_len, theta
-        pass
+        self.self_attn = Qwen2MultiHeadAttention(
+            hidden_size=hidden_size,
+            num_heads=num_attention_heads,
+            num_kv_heads=num_kv_heads,
+            wq=wq,
+            wk=wk,
+            wv=wv,
+            wo=wo,
+            bq=bq,
+            bk=bk,
+            bv=bv,
+            max_seq_len=max_seq_len,
+            theta=theta,
+        )
 
     def __call__(
         self,
