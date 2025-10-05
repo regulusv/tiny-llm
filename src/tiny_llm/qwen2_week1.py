@@ -300,32 +300,30 @@ class Qwen2TransformerBlock:
             max_seq_len: Maximum sequence length for RoPE
             theta: RoPE theta parameter
         """
-        # TODO: Step 1 - Store attention parameters
+        # Step 1 - Store attention parameters
         # Store num_attention_heads and hidden_size for later use
-        # self.num_attention_heads = num_attention_heads
-        # self.hidden_size = hidden_size
+        self.num_attention_heads = num_attention_heads
+        self.hidden_size = hidden_size
         
-        # TODO: Step 2 - Initialize MLP
-        # Create MLP instance: self.mlp = Qwen2MLP(hidden_size, intermediate_size, w_gate, w_up, w_down)
+        # Step 2 - Initialize MLP
+        # Create MLP instance: 
+        self.mlp = Qwen2MLP(hidden_size, intermediate_size, w_gate, w_up, w_down)
         
-        # TODO: Step 3 - Initialize Layer Normalizations
-        # Create input layer norm: self.input_layernorm = RMSNorm(hidden_size, w_input_layernorm, eps=rms_norm_eps)
-        # Create post-attention layer norm: self.post_attention_layernorm = RMSNorm(hidden_size, w_post_attention_layernorm, eps=rms_norm_eps)
+        # Step 3 - Initialize Layer Normalizations
+        # Create input layer norm: 
+        self.input_layernorm = RMSNorm(hidden_size, w_input_layernorm, eps=rms_norm_eps)
+        # Create post-attention layer norm:
+        self.post_attention_layernorm = RMSNorm(hidden_size, w_post_attention_layernorm, eps=rms_norm_eps)
         
+        # Step 4 - Initialize Multi-Head Attention
+        # Create attention instance: 
+
         self.self_attn = Qwen2MultiHeadAttention(
-            hidden_size=hidden_size,
-            num_heads=num_attention_heads,
-            num_kv_heads=num_kv_heads,
-            wq=wq,
-            wk=wk,
-            wv=wv,
-            wo=wo,
-            bq=bq,
-            bk=bk,
-            bv=bv,
-            max_seq_len=max_seq_len,
-            theta=theta,
-        )
+            num_attention_heads, 
+            hidden_size, 
+            num_kv_heads, 
+            wq, wk, wv, wo, bq, bk, bv, max_seq_len, 
+            theta)
 
     def __call__(
         self,
@@ -344,19 +342,24 @@ class Qwen2TransformerBlock:
         Returns:
             Output tensor of shape (batch_size, seq_len, hidden_size)
         """
-        # TODO: Step 1 - Pre-attention normalization and attention
-        # Apply input layer norm: normed_x = self.input_layernorm(x)
-        # Apply attention: attention_output = self.self_attn(normed_x, mask)
-        # Add residual connection: h = x + attention_output
+        # Step 1 - Pre-attention normalization and attention
+        # Apply input layer norm: 
+        normed_x = self.input_layernorm(x)
+        # Apply attention: 
+        attention_output = self.self_attn(normed_x, mask)
+        # Add residual connection: 
+        h = x + attention_output
         
-        # TODO: Step 2 - Pre-MLP normalization and MLP
-        # Apply post-attention layer norm: normed_h = self.post_attention_layernorm(h)
-        # Apply MLP: mlp_output = self.mlp(normed_h)
-        # Add residual connection: out = h + mlp_output
+        # Step 2 - Pre-MLP normalization and MLP
+        # Apply post-attention layer norm: 
+        normed_h = self.post_attention_layernorm(h)
+        # Apply MLP: 
+        mlp_output = self.mlp(normed_h)
+        # Add residual connection: 
+        out = h + mlp_output
         
-        # TODO: Step 3 - Return result
-        # Return the final output
-        pass
+        # Step 3 - Return result
+        return out
 
 
 class Qwen2ModelWeek1:
@@ -377,27 +380,28 @@ class Qwen2ModelWeek1:
         Args:
             mlx_model: Pre-loaded MLX model containing weights and configuration
         """
-        # TODO: Step 1 - Extract model configuration
+        # Step 1 - Extract model configuration
         # Extract key parameters from mlx_model.args:
-        # self.num_hidden_layers = mlx_model.args.num_hidden_layers
-        # self.hidden_size = mlx_model.args.hidden_size
-        # self.vocab_size = mlx_model.args.vocab_size
+        self.num_hidden_layers = mlx_model.args.num_hidden_layers
+        self.hidden_size = mlx_model.args.hidden_size
+        self.vocab_size = mlx_model.args.vocab_size
         
         # TODO: Step 2 - Set precision
         # Set precision for computations (typically float16):
-        # precision = mx.float16
-        # self.precision = precision
+        precision = mx.float16
+        self.precision = precision
         
-        # TODO: Step 3 - Initialize embedding layer
+        # Step 3 - Initialize embedding layer
         # Create embedding layer with dequantized weights:
-        # self.embedding = Embedding(
-        #     vocab_size=self.vocab_size,
-        #     embedding_dim=self.hidden_size,
-        #     weight=dequantize_linear(mlx_model.model.embed_tokens).astype(precision)
-        # )
+        self.embedding = Embedding(
+            vocab_size=self.vocab_size,
+            embedding_dim=self.hidden_size,
+            weight=dequantize_linear(mlx_model.model.embed_tokens).astype(precision)
+        )
         
-        # TODO: Step 4 - Initialize transformer layers
-        # Create list to store transformer blocks: self.layers_inner = []
+        # TStep 4 - Initialize transformer layers
+        # Create list to store transformer blocks: 
+        self.layers_inner = []
         # Loop through each layer (range(mlx_model.args.num_hidden_layers)):
         #   - Extract and dequantize attention weights (wq, wk, wv, wo)
         #   - Extract and dequantize MLP weights (w_gate, w_up, w_down)
@@ -405,25 +409,47 @@ class Qwen2ModelWeek1:
         #   - Extract layer norm weights (input_layernorm, post_attention_layernorm)
         #   - Create Qwen2TransformerBlock with all parameters
         #   - Append to self.layers_inner
+        for i in range(mlx_model.args.num_hidden_layers):
+            wq = dequantize_linear(mlx_model.model.layers[i].self_attn.q_proj)
+            wk = dequantize_linear(mlx_model.model.layers[i].self_attn.k_proj)
+            wv = dequantize_linear(mlx_model.model.layers[i].self_attn.v_proj)
+            wo = dequantize_linear(mlx_model.model.layers[i].self_attn.o_proj)
+            w_gate = dequantize_linear(mlx_model.model.layers[i].mlp.gate_proj)
+            w_up = dequantize_linear(mlx_model.model.layers[i].mlp.up_proj)
+            w_down = dequantize_linear(mlx_model.model.layers[i].mlp.down_proj)
+            bq = mlx_model.model.layers[i].self_attn.q_proj.bias.astype(precision)
+            bk = mlx_model.model.layers[i].self_attn.k_proj.bias.astype(precision)
+            bv = mlx_model.model.layers[i].self_attn.v_proj.bias.astype(precision)
+            w_input_layernorm = mlx_model.model.layers[i].input_layernorm.weight.astype(precision)
+            w_post_attention_layernorm = mlx_model.model.layers[i].post_attention_layernorm.weight.astype(precision)
+            layer = Qwen2TransformerBlock(
+                num_attention_heads=mlx_model.args.num_attention_heads, 
+                hidden_size=mlx_model.args.hidden_size, 
+                num_kv_heads=mlx_model.args.num_key_value_heads, 
+                intermediate_size=mlx_model.args.intermediate_size, 
+                rms_norm_eps=mlx_model.args.rms_norm_eps, 
+                wq=wq, wk=wk, wv=wv, wo=wo, bq=bq, bk=bk, bv=bv, w_gate=w_gate, w_up=w_up, w_down=w_down, w_input_layernorm=w_input_layernorm, w_post_attention_layernorm=w_post_attention_layernorm, max_seq_len=mlx_model.args.max_position_embeddings, theta=mlx_model.args.rope_theta)
+            self.layers_inner.append(layer)
         
-        # TODO: Step 5 - Initialize final layer normalization
+        # Step 5 - Initialize final layer normalization
         # Create final RMSNorm layer:
-        # self.norm = RMSNorm(
-        #     mlx_model.args.hidden_size,
-        #     weight=mlx_model.model.norm.weight.astype(precision),
-        #     eps=mlx_model.args.rms_norm_eps
-        # )
+        self.norm = RMSNorm(
+            mlx_model.args.hidden_size,
+            weight=mlx_model.model.norm.weight.astype(precision),
+            eps=mlx_model.args.rms_norm_eps
+        )
         
-        # TODO: Step 6 - Initialize language modeling head
+        # TStep 6 - Initialize language modeling head
         # Check if word embeddings are tied:
-        # if not mlx_model.args.tie_word_embeddings:
-        #     self.w_lm_head = dequantize_linear(mlx_model.lm_head)
-        # else:
-        #     self.w_lm_head = None
+        if not mlx_model.args.tie_word_embeddings:
+            self.w_lm_head = dequantize_linear(mlx_model.lm_head)
+        else:
+            self.w_lm_head = None
         
-        # TODO: Step 7 - Store reference to original model
-        # Store mlx_model for potential future use: self.mlx_model = mlx_model
-        pass
+        # Step 7 - Store reference to original model
+        # Store mlx_model for potential future use: 
+        self.mlx_model = mlx_model
+        
 
     def __call__(
         self,
@@ -438,24 +464,26 @@ class Qwen2ModelWeek1:
         Returns:
             Logits of shape (batch_size, seq_len, vocab_size)
         """
-        # TODO: Step 1 - Token embedding
-        # Convert token IDs to embeddings: h = self.embedding(inputs)
+        # Step 1 - Token embedding
+        # Convert token IDs to embeddings: 
+        h = self.embedding(inputs)
         
-        # TODO: Step 2 - Pass through transformer layers
-        # Loop through each transformer layer:
-        # for layer in range(self.num_hidden_layers):
-        #     h = self.layers_inner[layer](h, mask="causal")
+        # Step 2 - Pass through transformer layers
+        # Loop through each transformer 
+        for layer in range(self.num_hidden_layers):
+            h = self.layers_inner[layer](h, mask="causal")
+      
+        # Step 3 - Final layer normalization
+        # Apply final normalization: 
+        h = self.norm(h)
         
-        # TODO: Step 3 - Final layer normalization
-        # Apply final normalization: h = self.norm(h)
-        
-        # TODO: Step 4 - Language modeling head
+        # Step 4 - Language modeling head
         # Apply output projection:
-        # if self.w_lm_head is not None:
-        #     return linear(h, self.w_lm_head)
-        # else:
-        #     return self.embedding.as_linear(h)
+        if self.w_lm_head is not None:
+            return linear(h, self.w_lm_head)
+        else:
+            return self.embedding.as_linear(h)
         
-        # TODO: Step 5 - Return logits
+        # Step 5 - Return logits
         # Return the final logits
-        pass
+        return h
