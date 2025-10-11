@@ -319,8 +319,8 @@ class Qwen2TransformerBlock:
         # Create attention instance: 
 
         self.self_attn = Qwen2MultiHeadAttention(
-            num_attention_heads, 
             hidden_size, 
+            num_attention_heads, 
             num_kv_heads, 
             wq, wk, wv, wo, bq, bk, bv, max_seq_len, 
             theta)
