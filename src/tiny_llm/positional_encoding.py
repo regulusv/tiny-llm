@@ -1,7 +1,7 @@
 import mlx.core as mx
 
 
-class RoPE:
+class 59RoPE:
     def __init__(
         self,
         dims: int,
@@ -80,6 +80,7 @@ class RoPE:
                 assert len(offset) == N, f"offsets must have the same length as batch size {N}"
                 for o in offset:
                     assert o.stop - o.start == S, f"offset must be of length {S}"
+                offset = mx.array([list(range(i.start, i.stop)) for i in offset])
 
         # Step 3: Select rotary bases for the current positions
         cos_basis = self.cos_freqs[:S, :] if offset is None else self.cos_freqs[offset, :]
