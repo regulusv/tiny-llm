@@ -98,4 +98,25 @@ class TinyKvFullCache(TinyKvCache):
         mask_length: int | None = None,
         mask: mx.array | str | None = None,
     ) -> tuple[mx.array, mx.array, int, Optional[mx.array]]:
-        pass
+        if self.key_values is None:
+            self.key_values = (key, value)
+            B, H, S, D = key.shape
+            self.offset = S # initialize the offset to the sequence length of the new key-value pair
+            return key, value, self.offset, mask
+        else:
+            # Step 0: check the shape of the new key-value pair
+            B, H, S, D = key.shape
+            assert key.shape == value.shape
+            # Step 1: concat the new key-value pair with the previous key-value pairs
+            prev_keys, prev_values = self.key_values
+            assert prev_keys.shape == (B, H, self.offset, D)
+            assert prev_values.shape == (B, H, self.offset, D)
+            # Step 2: concat the new key-value pair with the previous key-value pairs
+            new_keys = mx.concat([prev_keys, key], axis=2)
+            new_values = mx.concat([prev_values, value], axis=2)
+            # Step 3: update the key-value cache and the offset
+            self.key_values = (new_keys, new_values)
+            self.offset += S
+            # Step 4: return the updated key-value cache and the offset
+            return new_keys, new_values, self.offset, mask
+
