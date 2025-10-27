@@ -1,7 +1,7 @@
 import mlx.core as mx
 
 
-class 59RoPE:
+class RoPE:
     def __init__(
         self,
         dims: int,

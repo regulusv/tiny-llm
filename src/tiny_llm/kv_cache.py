@@ -54,8 +54,11 @@ class BatchingKvCache(TinyKvCache):
         assert keys.shape == values.shape
         # 确保当前序列长度不超过最大序列长度限制
         assert S <= self.max_seq_len
-        # 确保注意力头和维度与之前缓存的一致，防止维度不匹配
-        assert self.HD == (H, D), f"expect {self.HD} but got {H, D}"
+        # 如果尚未设置HD维度，则初始化，否则检查维度一致性
+        if self.HD is None:
+            self.HD = (H, D)
+        else:
+            assert self.HD == (H, D), f"expect {self.HD} but got {H, D}"
         # 确保批量大小与最大活跃请求数一致
         assert B == self.max_active_requests
 
